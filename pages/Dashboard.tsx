@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../services/db";
-import { Transaction, Product } from "../types";
-import { Card, Toast, Badge } from "../components/UI";
+import { Transaction, Product, UserProfile } from "../types";
+import { Card, Toast, Badge, Button } from "../components/UI";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const Dashboard: React.FC = () => {
@@ -14,8 +14,20 @@ const Dashboard: React.FC = () => {
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [showLowStockToast, setShowLowStockToast] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(db.getUserProfile());
 
   useEffect(() => {
+    refreshData();
+    const handleProfile = () => setProfile(db.getUserProfile());
+    window.addEventListener("profile-updated", handleProfile);
+    window.addEventListener("transactions-updated", refreshData);
+    return () => {
+      window.removeEventListener("profile-updated", handleProfile);
+      window.removeEventListener("transactions-updated", refreshData);
+    };
+  }, []);
+
+  const refreshData = () => {
     const transactions = db.getTransactions();
     const products = db.getProducts();
     const now = new Date();
@@ -56,7 +68,16 @@ const Dashboard: React.FC = () => {
       todayMethods,
     });
     setChartData(last7Days);
-  }, []);
+  };
+
+  const handleFixRole = () => {
+    if (profile) {
+      const newProfile = { ...profile, role: "owner" as const };
+      db.saveUserProfile(newProfile);
+      alert("Role dipaksa menjadi OWNER. Halaman akan dimuat ulang.");
+      window.location.reload();
+    }
+  };
 
   const formatRp = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
@@ -67,9 +88,16 @@ const Dashboard: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">Dashboard Toko</h1>
           <p className="text-slate-500">Ringkasan aktivitas hari ini</p>
         </div>
-        <div className="text-sm text-slate-500 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-100">
-          <i className="fa-regular fa-calendar mr-2"></i>
-          {new Date().toLocaleDateString("id-ID", { dateStyle: "full" })}
+        <div className="flex items-center gap-3">
+          {profile?.role === "staff" && (
+            <Button variant="outline" size="sm" onClick={handleFixRole} className="text-red-500 border-red-200">
+              Fix Role to Owner
+            </Button>
+          )}
+          <div className="text-sm text-slate-500 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-100">
+            <i className="fa-regular fa-calendar mr-2"></i>
+            {new Date().toLocaleDateString("id-ID", { dateStyle: "full" })}
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../services/db";
 import { AppSettings, UserProfile } from "../types";
-import { Button, Input, Card, Toast, Badge, Modal } from "../components/UI";
+import { Button, Input, Card, Toast, Badge } from "../components/UI";
 import { printerService } from "../services/printer";
 
 const Settings: React.FC = () => {
@@ -34,10 +34,17 @@ const Settings: React.FC = () => {
   useEffect(() => {
     const s = db.getSettings();
     if (s) setSettings(s);
-    setProfile(db.getUserProfile());
+
+    const p = db.getUserProfile();
+    if (p) setProfile(p);
+
     if (printerService.isConnected()) {
       setPrinterStatus("connected");
     }
+
+    const handleProfileUpdate = () => setProfile(db.getUserProfile());
+    window.addEventListener("profile-updated", handleProfileUpdate);
+    return () => window.removeEventListener("profile-updated", handleProfileUpdate);
   }, []);
 
   const handleSave = () => {
@@ -70,7 +77,7 @@ const Settings: React.FC = () => {
   };
 
   const handleInjectDemo = async () => {
-    if (confirm("PERHATIAN: Ini akan MENGHAPUS semua data Anda saat ini dan menggantinya dengan data demo (Produk, Transaksi, Member). Lanjutkan?")) {
+    if (confirm("PERHATIAN: Ini akan MENGHAPUS semua data Anda saat ini dan menggantinya dengan data demo. Lanjutkan?")) {
       setIsProcessing(true);
       try {
         await db.injectDemoData();
@@ -85,7 +92,7 @@ const Settings: React.FC = () => {
   };
 
   const handleWipeData = async () => {
-    if (confirm("PERHATIAN: Ini akan MENGHAPUS PERMANEN semua data warung Anda. Tindakan ini tidak bisa dibatalkan! Ketik 'HAPUS' untuk konfirmasi.")) {
+    if (confirm("PERHATIAN: Ini akan MENGHAPUS PERMANEN semua data warung Anda. Ketik 'HAPUS' untuk konfirmasi.")) {
       const confirmText = prompt("Ketik HAPUS untuk konfirmasi:");
       if (confirmText === "HAPUS") {
         setIsProcessing(true);
@@ -123,7 +130,7 @@ const Settings: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Pengaturan Warung</h1>
           <div className="flex items-center gap-2 mt-1">
-            <Badge color={profile?.role === "owner" ? "blue" : "green"}>Role: {profile?.role?.toUpperCase()}</Badge>
+            <Badge color={profile?.role === "owner" ? "blue" : "green"}>Role: {profile?.role?.toUpperCase() || "STAFF"}</Badge>
           </div>
         </div>
         <Button onClick={handleSave} icon="fa-save" className={isSaved ? "bg-green-600" : ""}>
@@ -133,7 +140,6 @@ const Settings: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* IDENTITAS WARUNG */}
           <Card className="p-6 space-y-4">
             <h2 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-2 flex items-center gap-2">
               <i className="fa-solid fa-store text-blue-500"></i> Profil Warung
@@ -146,7 +152,6 @@ const Settings: React.FC = () => {
                 <label className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold cursor-pointer shadow-sm hover:bg-gray-50 transition-colors">
                   Ganti Logo <input type="file" className="hidden" onChange={handleLogoUpload} />
                 </label>
-                <p className="text-[10px] text-gray-400 mt-2 italic">Format: JPG/PNG, Max: 1MB</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -157,7 +162,6 @@ const Settings: React.FC = () => {
             <Input label="Pesan Kaki Struk (Footer)" value={settings.footerMessage} onChange={(e) => setSettings({ ...settings, footerMessage: e.target.value })} />
           </Card>
 
-          {/* KONFIGURASI POIN MEMBER */}
           <Card className="p-6 space-y-4">
             <h2 className="text-lg font-bold text-gray-800 border-b border-gray-100 pb-2 flex items-center gap-2">
               <i className="fa-solid fa-star text-amber-500"></i> Loyalty Program (Poin)
@@ -184,13 +188,11 @@ const Settings: React.FC = () => {
                 <Input label="Silver (x)" type="number" step="0.1" value={settings.tierMultipliers.silver} onChange={(e) => setSettings({ ...settings, tierMultipliers: { ...settings.tierMultipliers, silver: Number(e.target.value) } })} />
                 <Input label="Gold (x)" type="number" step="0.1" value={settings.tierMultipliers.gold} onChange={(e) => setSettings({ ...settings, tierMultipliers: { ...settings.tierMultipliers, gold: Number(e.target.value) } })} />
               </div>
-              <p className="text-[10px] text-slate-400 mt-2 bg-slate-50 p-2 rounded-lg italic">* Tips: Atur Gold lebih tinggi (misal: 1.5) supaya pelanggan lebih termotivasi belanja banyak.</p>
             </div>
           </Card>
         </div>
 
         <div className="space-y-6">
-          {/* WARUNG ID & SECURITY */}
           <Card className="p-6 bg-slate-900 text-white border-none shadow-xl relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-sm uppercase tracking-widest text-blue-400">Warung ID</h3>
@@ -204,10 +206,10 @@ const Settings: React.FC = () => {
                 <i className={`fa-solid ${copiedId ? "fa-check text-green-400" : "fa-copy"}`}></i>
               </Button>
             </div>
-            <p className="text-[10px] text-slate-500 italic mb-6">Kasir butuh ID ini untuk mendaftar ke toko Anda.</p>
+            <p className="text-[10px] text-slate-500 italic mb-6">ID ini untuk mendaftar kasir baru.</p>
 
             <div className="space-y-3 pt-4 border-t border-slate-800">
-              <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest">Proteksi Aplikasi</h3>
+              <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest">Proteksi PIN</h3>
               <Input
                 label="PIN Keamanan (6 Digit)"
                 type="password"
@@ -217,28 +219,21 @@ const Settings: React.FC = () => {
                 placeholder="Kosongkan jika tanpa PIN"
                 className="!bg-slate-800 !border-slate-700 !text-white placeholder:text-slate-600"
               />
-              <p className="text-[9px] text-slate-500">PIN akan diminta saat membuka menu Laporan atau Pengaturan.</p>
             </div>
           </Card>
 
-          {/* PRINTER SETTINGS */}
           <Card className="p-6 space-y-4">
             <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
               <i className="fa-solid fa-print text-slate-400"></i> Printer Struk
             </h3>
             <div className={`p-3 rounded-xl border flex items-center justify-between ${printerStatus === "connected" ? "bg-emerald-50 border-emerald-100" : "bg-gray-50 border-gray-100"}`}>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Status</p>
-                <p className={`text-xs font-bold ${printerStatus === "connected" ? "text-emerald-600" : "text-gray-500"}`}>{printerStatus === "connected" ? "TERSAMBUNG" : "TERPUTUS"}</p>
-              </div>
+              <p className={`text-xs font-bold ${printerStatus === "connected" ? "text-emerald-600" : "text-gray-500"}`}>{printerStatus === "connected" ? "TERSAMBUNG" : "TERPUTUS"}</p>
               <Button size="sm" variant={printerStatus === "connected" ? "secondary" : "primary"} onClick={handleConnectPrinter} disabled={isConnectingPrinter}>
                 {isConnectingPrinter ? <i className="fa-solid fa-spinner fa-spin"></i> : printerStatus === "connected" ? "Ganti" : "Cari"}
               </Button>
             </div>
-            {settings.printerName && <p className="text-[10px] text-gray-400 text-center font-mono">{settings.printerName}</p>}
           </Card>
 
-          {/* DANGER ZONE / MOCK DATA */}
           <Card className="p-6 border-red-100 bg-red-50/30 space-y-4">
             <h3 className="text-sm font-bold text-red-600 uppercase tracking-widest flex items-center gap-2">
               <i className="fa-solid fa-triangle-exclamation"></i> Danger Zone
@@ -248,10 +243,9 @@ const Settings: React.FC = () => {
                 INJEKSI DATA DEMO
               </Button>
               <Button onClick={handleWipeData} disabled={isProcessing} variant="danger" className="w-full text-xs font-bold" icon="fa-solid fa-trash-can">
-                BERSIHKAN DATABASE
+                HAPUS SEMUA DATA
               </Button>
             </div>
-            <p className="text-[9px] text-red-400 text-center italic">Gunakan Data Demo untuk mencoba semua fitur aplikasi dengan cepat.</p>
           </Card>
         </div>
       </div>
@@ -260,12 +254,12 @@ const Settings: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center">
           <Card className="p-8 text-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="font-bold">Sedang memproses...</p>
+            <p className="font-bold">Memproses data...</p>
           </Card>
         </div>
       )}
 
-      <Toast isOpen={showAutoSaveToast} onClose={() => setShowAutoSaveToast(false)} type="success" message="Logo warung berhasil diperbarui!" />
+      <Toast isOpen={showAutoSaveToast} onClose={() => setShowAutoSaveToast(false)} type="success" message="Logo berhasil diperbarui!" />
     </div>
   );
 };
